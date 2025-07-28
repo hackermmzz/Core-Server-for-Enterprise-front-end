@@ -25,6 +25,23 @@
         <!-- 新增滑动容器，用于在空间有限时横向滚动 -->
         <div class="form-scroll-container">
           <form @submit.prevent="handleSubmit" class="login-form">
+            <!-- 用户名输入框 -->
+            <div class="form-item">
+              <div class="input-wrapper">
+                <i class="icon-user"></i>
+                <input 
+                  type="text" 
+                  v-model="username" 
+                  placeholder="请输入用户名" 
+                  required 
+                  :class="{ 'focused': usernameFocused, 'error': usernameError }"
+                  @focus="usernameFocused = true"
+                  @blur="usernameFocused = false; validateUsername()"
+                />
+                <span v-if="usernameError" class="error-message">{{ usernameErrorMessage }}</span>
+              </div>
+            </div>
+
             <!-- 邮箱输入框 -->
             <div class="form-item">
               <div class="input-wrapper">
@@ -98,19 +115,24 @@
                 <i class="icon-shield"></i>
                 <input 
                   type="text" 
-                  v-model="captcha" 
-                  placeholder="请输入验证码" 
+                  v-model="verificationCode" 
+                  placeholder="请输入邮箱验证码" 
                   required 
-                  :class="{ 'focused': captchaFocused, 'error': captchaError }"
-                  @focus="captchaFocused = true"
-                  @blur="captchaFocused = false; validateCaptcha()"
+                  :class="{ 'focused': verificationCodeFocused, 'error': verificationCodeError }"
+                  @focus="verificationCodeFocused = true"
+                  @blur="verificationCodeFocused = false; validateVerificationCode()"
                 />
-                <div class="captcha-image" @click="refreshCaptcha">
-                  <!-- 实际项目中这里会显示真实的验证码图片 -->
-                  <span class="captcha-text">{{ captchaCode }}</span>
-                  <i class="icon-refresh"></i>
-                </div>
-                <span v-if="captchaError" class="error-message">{{ captchaErrorMessage }}</span>
+                <button 
+                  type="button" 
+                  class="login-btn" 
+                  @click="sendVerificationCode"
+                  :disabled="isSendingCode || countdown > 0"
+                >
+                  <span v-if="!isSendingCode && countdown === 0">发送验证码</span>
+                  <span v-if="isSendingCode">发送中...</span>
+                  <span v-if="countdown > 0">{{ countdown }}s后重发</span>
+                </button>
+                <span v-if="verificationCodeError" class="error-message">{{ verificationCodeErrorMessage }}</span>
               </div>
             </div>
 
@@ -146,53 +168,109 @@ export default {
   data() {
     return {
       // 表单数据
+      username: '',
       email: '',
       password: '',
       confirmPassword: '',
-      captcha: '',
+      verificationCode: '',  // 验证码改为邮箱验证码
       
       // 验证码相关
-      captchaCode: '',
       showPassword: false,
       showConfirmPassword: false,
+      countdown: 0,          // 倒计时秒数
+      isSendingCode: false,  // 是否正在发送验证码
       
       // 焦点状态
+      usernameFocused: false,
       emailFocused: false,
       passwordFocused: false,
       confirmPasswordFocused: false,
-      captchaFocused: false,
+      verificationCodeFocused: false,
       
       // 错误状态
+      usernameError: false,
       emailError: false,
       passwordError: false,
       confirmPasswordError: false,
-      captchaError: false,
+      verificationCodeError: false,
       
       // 错误信息
+      usernameErrorMessage: '',
       emailErrorMessage: '',
       passwordErrorMessage: '',
       confirmPasswordErrorMessage: '',
-      captchaErrorMessage: '',
+      verificationCodeErrorMessage: '',
       
       // 加载状态
       loading: false
     };
   },
-  created() {
-    // 生成初始验证码
-    this.refreshCaptcha();
-  },
   methods: {
-    // 刷新验证码
-    refreshCaptcha() {
-      // 生成4位随机字母数字组合的验证码
-      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let code = '';
-      for (let i = 0; i < 4; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    // 发送验证码到邮箱
+    async sendVerificationCode() {
+      // 先验证邮箱是否有效
+      if (!this.validateEmail()) {
+        return;
       }
-      this.captchaCode = code;
-      this.captcha = '';
+      
+      this.isSendingCode = true;
+      
+      try {
+        // 调用后端接口发送验证码
+        const response = await fetch('/api/send-verification-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: this.email
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          this.$message.success('验证码已发送到您的邮箱，请查收');
+          // 开始倒计时
+          this.startCountdown();
+        } else {
+          this.$message.error(data.message || '发送验证码失败，请稍后重试');
+        }
+      } catch (error) {
+        console.error('发送验证码错误:', error);
+        this.$message.error('发送验证码失败，请检查网络连接');
+      } finally {
+        this.isSendingCode = false;
+      }
+    },
+    
+    // 开始倒计时
+    startCountdown() {
+      this.countdown = 60; // 60秒倒计时
+      const timer = setInterval(() => {
+        this.countdown--;
+        if (this.countdown <= 0) {
+          clearInterval(timer);
+        }
+      }, 1000);
+    },
+    
+    // 验证用户名
+    validateUsername() {
+      const usernameRegex = /^[a-zA-Z0-9_]{4,16}$/;
+      if (!this.username) {
+        this.usernameError = true;
+        this.usernameErrorMessage = '请输入用户名';
+        return false;
+      } else if (!usernameRegex.test(this.username)) {
+        this.usernameError = true;
+        this.usernameErrorMessage = '用户名只能包含字母、数字和下划线，长度4-16位';
+        return false;
+      } else {
+        this.usernameError = false;
+        this.usernameErrorMessage = '';
+        return true;
+      }
     },
     
     // 验证邮箱
@@ -248,33 +326,34 @@ export default {
       }
     },
     
-    // 验证验证码
-    validateCaptcha() {
-      if (!this.captcha) {
-        this.captchaError = true;
-        this.captchaErrorMessage = '请输入验证码';
+    // 验证邮箱验证码
+    validateVerificationCode() {
+      if (!this.verificationCode) {
+        this.verificationCodeError = true;
+        this.verificationCodeErrorMessage = '请输入验证码';
         return false;
-      } else if (this.captcha.toUpperCase() !== this.captchaCode) {
-        this.captchaError = true;
-        this.captchaErrorMessage = '验证码不正确';
+      } else if (this.verificationCode.length !== 6) {
+        this.verificationCodeError = true;
+        this.verificationCodeErrorMessage = '验证码长度为6位';
         return false;
       } else {
-        this.captchaError = false;
-        this.captchaErrorMessage = '';
+        this.verificationCodeError = false;
+        this.verificationCodeErrorMessage = '';
         return true;
       }
     },
     
-// 表单提交处理
+    // 表单提交处理
     async handleSubmit() {
       // 验证所有字段
+      const isUsernameValid = this.validateUsername();
       const isEmailValid = this.validateEmail();
       const isPasswordValid = this.validatePassword();
       const isConfirmPasswordValid = this.validateConfirmPassword();
-      const isCaptchaValid = this.validateCaptcha();
+      const isVerificationCodeValid = this.validateVerificationCode();
       
       // 如果所有验证通过
-      if (isEmailValid && isPasswordValid && isConfirmPasswordValid && isCaptchaValid) {
+      if (isUsernameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid && isVerificationCodeValid) {
         this.loading = true;
         
         try {
@@ -286,10 +365,11 @@ export default {
               'type': 'Register'  // 标识为注册请求
             },
             body: JSON.stringify({
+              username: this.username,
               email: this.email,
               password: this.password,
               confirmPassword: this.confirmPassword,
-              captcha: this.captcha
+              verificationCode: this.verificationCode
             }),
             credentials: 'include'
           });
@@ -305,8 +385,6 @@ export default {
           } else {
             // 注册失败，显示错误信息
             this.$message.error(data.msg || data.error || '注册失败，请稍后再试');
-            // 刷新验证码
-            this.refreshCaptcha();
           }
         } catch (error) {
           console.error('注册请求错误:', error);
@@ -317,7 +395,6 @@ export default {
       }
     },
     
-    
     // 切换到登录
     switchToLogin() {
       // 实际项目中这里会进行路由跳转
@@ -327,6 +404,7 @@ export default {
   }
 };
 </script>
+
 
 
 <style scoped>
@@ -775,6 +853,7 @@ input.focused ~ .icon-lock {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  margin-top: 15px;
 }
 
 .login-btn::before {
