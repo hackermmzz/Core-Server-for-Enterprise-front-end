@@ -75,7 +75,9 @@
 
           <!-- 登录按钮 -->
           <div class="form-item">
-            <button type="submit" :disabled="loading" class="login-btn">
+            <button
+             type="submit" 
+             :disabled="loading" class="login-btn">
               <span v-if="!loading">登录</span>
               <span v-else class="loading-indicator">
                 <span class="spinner"></span>
@@ -100,6 +102,9 @@
 </template>
 
 <script>
+import { ElMessage } from 'element-plus';
+import { BASE_URL } from '../../config';
+import { userInfo } from '../../config';
 export default {
   name: 'Login',
   data() {
@@ -162,51 +167,35 @@ export default {
 
       this.loading = true;
       try {
-        const response = await fetch(this.BASE_URL, {
+        const response = await fetch(BASE_URL+"api/user/login", {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'type': 'Login'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            account: this.email,
+            email: this.email,
             password: this.password,
-            remember: this.rememberMe
           }),
-          credentials: 'include'
         });
 
         const data = await response.json();
         
         if (response.ok && data.status === true) {
-          this.$message.success(data.msg || '登录成功！');
-          
+          ElMessage.success(data.msg)
           // 存储用户信息到全局
-          this.$store.commit('setUserInfo', {
-            email: this.email,
-            vipStatus: data.vip,
-            registDate: data.date,
-            userID: data.userID,
-            avatar: this.BASE_URL + data.avatar
-          });
-          
-          // 记住密码处理
-          if (this.rememberMe) {
-            localStorage.setItem('rememberedEmail', this.email);
-          } else {
-            localStorage.removeItem('rememberedEmail');
-          }
+          userInfo.email=this.email
+          userInfo.nickname="bg"
           
           // 延迟跳转
           setTimeout(() => {
             this.$router.push('/home');
           }, 1500);
         } else {
-          this.$message.error(data.msg || data.error || '登录失败');
+           ElMessage.error(data.msg  || '登录失败');
         }
       } catch (error) {
         console.error('登录错误:', error);
-        this.$message.error('登录错误！请检查网络连接或联系管理员');
+       ElMessage.error('登录错误！请检查网络连接或联系管理员');
       } finally {
         this.loading = false;
       }

@@ -138,7 +138,10 @@
 
             <!-- 注册按钮 -->
             <div class="form-item">
-              <button type="submit" :disabled="loading" class="login-btn">
+              <button 
+              type="submit" 
+              :disabled="loading" 
+              class="login-btn">
                 <span v-if="!loading">注册</span>
                 <span v-else class="loading-indicator">
                   <span class="spinner"></span>
@@ -164,6 +167,8 @@
 </template>
 
 <script>
+import { BASE_URL } from '../../config';
+import { ElMessage } from 'element-plus'
 export default {
   data() {
     return {
@@ -217,7 +222,7 @@ export default {
       
       try {
         // 调用后端接口发送验证码
-        const response = await fetch('/api/send-verification-code', {
+        const response = await fetch(BASE_URL+'api/user/registVerifyCode', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -228,17 +233,16 @@ export default {
         });
         
         const data = await response.json();
-        
-        if (response.ok && data.success) {
-          this.$message.success('验证码已发送到您的邮箱，请查收');
+        console.log(data)
+        if (response.ok && data.status==true) {
+          ElMessage.success(data.msg)
           // 开始倒计时
           this.startCountdown();
         } else {
-          this.$message.error(data.message || '发送验证码失败，请稍后重试');
+          ElMessage.error(data.msg)
         }
       } catch (error) {
-        console.error('发送验证码错误:', error);
-        this.$message.error('发送验证码失败，请检查网络连接');
+        ElMessage.error('发送验证码失败，请检查网络连接', error);
       } finally {
         this.isSendingCode = false;
       }
@@ -332,9 +336,9 @@ export default {
         this.verificationCodeError = true;
         this.verificationCodeErrorMessage = '请输入验证码';
         return false;
-      } else if (this.verificationCode.length !== 6) {
+      } else if (this.verificationCode.length !== 5) {
         this.verificationCodeError = true;
-        this.verificationCodeErrorMessage = '验证码长度为6位';
+        this.verificationCodeErrorMessage = '验证码长度为5位';
         return false;
       } else {
         this.verificationCodeError = false;
@@ -351,44 +355,31 @@ export default {
       const isPasswordValid = this.validatePassword();
       const isConfirmPasswordValid = this.validateConfirmPassword();
       const isVerificationCodeValid = this.validateVerificationCode();
-      
       // 如果所有验证通过
       if (isUsernameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid && isVerificationCodeValid) {
         this.loading = true;
-        
         try {
-          // 发送注册请求到后端
-          const response = await fetch(this.BASE_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'type': 'Register'  // 标识为注册请求
-            },
+          const resp=await fetch(BASE_URL+"api/user/regist",
+          {
+            method:'POST',
             body: JSON.stringify({
-              username: this.username,
               email: this.email,
-              password: this.password,
-              confirmPassword: this.confirmPassword,
-              verificationCode: this.verificationCode
-            }),
-            credentials: 'include'
-          });
-
-          const data = await response.json();
-          
-          if (response.ok && data.status === true) {
-            this.$message.success(data.msg || '注册成功！');
-            // 延迟跳转，让用户看到成功提示
-            setTimeout(() => {
-              this.switchToLogin();
-            }, 1500);
-          } else {
-            // 注册失败，显示错误信息
-            this.$message.error(data.msg || data.error || '注册失败，请稍后再试');
+              password:this.password,
+              nickname:this.username,
+              verifyCode:this.verificationCode
+            })
           }
+        )
+        console.log(resp)
+        const data=await resp.json()
+        if(resp.ok&&data.status==true){
+          ElMessage.success(data.msg)
+          this.switchToLogin()
+        }else{
+          ElMessage.error(data.msg)
+        }
         } catch (error) {
-          console.error('注册请求错误:', error);
-          this.$message.error('注册失败！请检查网络连接或联系管理员');
+          ElMessage.error('请检查网络连接')
         } finally {
           this.loading = false;
         }
