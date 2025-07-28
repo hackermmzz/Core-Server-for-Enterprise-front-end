@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(),
+    
+  ],
   server: {
     host: '0.0.0.0', // 绑定到所有网络接口，允许局域网访问
     port: 3000, // 可自定义端口号

@@ -4,6 +4,8 @@ import welcome from '../components/welcome.vue'
 import login_register from '../components/login_register.vue'
 import login from '../components/login.vue'
 import register from '../components/register.vue'
+import vortex from '../components/Vortex.vue'
+import home from '../components/home.vue'
 const routes = [
   {
     path: '/',
@@ -25,6 +27,17 @@ const routes = [
     name: 'register',
     component: register
   },
+     {
+    path: '/vortex',
+    name: 'vortex',
+    component: vortex
+  },
+       {
+    path: '/home',
+    name: 'home',
+    component: home
+  },
+
 
 
 ]
