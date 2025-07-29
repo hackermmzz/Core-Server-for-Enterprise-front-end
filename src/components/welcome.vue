@@ -109,6 +109,7 @@ export default {
     goToLogin() {
       // 使用 Vue Router 进行页面跳转
       this.$router.push('/login_register');
+       //this.$router.push('/home');
     }
 
 
